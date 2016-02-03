@@ -1,5 +1,5 @@
 //  Author: Shivam Parikh, Period 4, Due 1/8/15
-//argv[]:  0 = filename; 1 = inputFile Name; 2 = output file name (no extension); 3 = shrink size; 4 = number of colors
+//argv[]:  0 = filename; 1 = inputFile Name; 2 = output file name (no extension); 3 = number of divisions in each axis; 4 = number of colors; 5 = filter type (0 = none, 1 = ho, 2 =ve, 12 = v/h)
 #include <iostream>
 #include <vector>
 #include <iomanip>
@@ -20,8 +20,11 @@ void inputFile(unsigned char** buffer, ifstream& istream, int width, int height,
 void transferBuffer(unsigned char** in, unsigned char** out, int width, int height);
 Color calcAverage(unsigned char** buffer, int wStart, int hStart, int wFin, int hFin);
 void drawAverage(unsigned char** buffer, int wStart, int hStart, int wFin, int hFin);
+void drawAverageTotal(unsigned char** buffer, int width, int height, int n);
 void tint(Color color, int px1, int px2, int pz1, int pz2, unsigned char** inBuffer);
 double smallest(Color color);
+void horizontalFilter(unsigned char** buffer, Color* colr, int width, int height, int div);
+void verticalFilter(unsigned char** buffer, Color* colr, int width, int height, int div);
 int biToInt(ifstream& stream, int offset);
 void write_bmp_header_file(ofstream& output_file, int px, int pz);
 int string_to_int(string s);
@@ -42,6 +45,7 @@ int main(int argc, char * argv[]){
     cout << height << " is the height of the file in pixels\n";
     int subSize = string_to_int(argv[3]);
     int numSplit = string_to_int(argv[4]);
+    int filterType = string_to_int(argv[5]);
     cout << "\nThe split count is " << numSplit << "\n";
     //Scan Lines
     int lineSize = width*3;
@@ -94,30 +98,30 @@ int main(int argc, char * argv[]){
     }
     transferBuffer(inBuffer, buffer, width, height);
     Color* bl = new Color[numSplit];
-    Color blue(40, 40, 175);
-    Color red(175, 40, 40);
-    Color white(220, 220, 220);
+    Color blue(80, 80, 175);
+    Color red(175, 80, 80);
+    Color white(254, 254, 254);
     Color bk[] = {blue, white, red};
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < numSplit; i++){
         Color rand(80, 200);
         cout << rand.getR() << " " << rand.getG() << " " << rand.getB() <<"\n";
-        bl[i] = bk[i];
+        bl[i] = rand;
+    }
+    switch(filterType){
+        case 0: break;
+        case 1: horizontalFilter(buffer, bl, width, height, numSplit);
+            break;
+        case 2: verticalFilter(buffer, bl, width, height, numSplit);
+            break;
+        case 12: horizontalFilter(buffer, bl, width, height, numSplit);
+                verticalFilter(buffer, bl, width, height, numSplit);
+                break;
+        default: break;
     }
     if(subSize > 0){
-        for(i = 1; i < height-subSize; i+=subSize){
-            for(j = 1; j < width-subSize; j+= subSize){
-                drawAverage(buffer, j, i, j+subSize+1, i+subSize+1);
-            }
-        }
+        drawAverageTotal(buffer, width, height, subSize);
     }
-    /*int skip = height/numSplit;
-    for(int i = 0; i < numSplit; i++){
-        tint(bl[i], 0, width, i*skip, ((i+1)*skip), buffer);
-    }*/
-    int wSkip = width/numSplit;
-    for(int j = 0; j < numSplit; j++){
-        tint(bl[j], j*wSkip, (j+1)*wSkip, 0, height, buffer);
-    }
+
     delete[] bl;
     unsigned char p_buffer[4];
     p_buffer[0]=0;
@@ -195,6 +199,15 @@ void drawAverage(unsigned char** buffer, int wStart, int hStart, int wFin, int h
         }
     }
 }
+void drawAverageTotal(unsigned char** buffer, int width, int height, int n){
+    int x = width/n;
+    int y = height/n;
+    for(int i = 0; i < n; i++){
+        for(int j = 0; j < n; j++){
+            drawAverage(buffer, (x*i), (y*j), (x*(i+1)), (y*(j+1)));
+        }
+    }
+}
 
 void transferBuffer(unsigned char** in, unsigned char** out, int width, int height){
     for(int i = 0; i < height; i++){
@@ -218,6 +231,18 @@ void tint(Color color, int px1, int px2, int pz1, int pz2, unsigned char** inBuf
             inBuffer[i][j+2] += (myR - inBuffer[i][j+2])*tAlpha;
             
         }
+    }
+}
+void horizontalFilter(unsigned char** buffer, Color* colr, int width, int height, int div){
+    int skip = height/div;
+    for(int i = 0; i < div; i++){
+        tint(colr[i], 0, width, i*skip, ((i+1)*skip), buffer);
+    }
+}
+void verticalFilter(unsigned char** buffer, Color* colr, int width, int height, int div){
+    int wSkip = width/div;
+    for(int i = 0; i < div; i++){
+        tint(colr[i], i*wSkip, (i+1)*wSkip, 0, height, buffer);
     }
 }
 double smallest(Color color){
